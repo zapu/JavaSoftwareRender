@@ -180,6 +180,82 @@ final public class Matrix {
         }
     }
 
+    public Matrix inverse()
+    {
+    	Matrix m = new Matrix(4,4);
+    	return m.inverse(this);
+    }
+    public Matrix inverse(Matrix original) {
+    		for (int i = 0; i < N; i++)
+    			data[i][i] = 1;
+    	    
+    	    if (M == 1)
+    	    {
+    	      set(0, 0, 1 / original.value(0, 0));
+    	      return this;
+    	    }
+
+    	    Matrix b = new Matrix(original);
+
+    	    int n = M;
+    	    for (int i = 0; i < n; i++)
+    	    {
+    	      // find pivot
+    	      double mag = 0;
+    	      int pivot = -1;
+
+    	      for (int j = i; j < n; j ++)
+    	      {
+    	        double mag2 = Math.abs(b.value(j, i));
+    	        if (mag2 > mag)
+    	        {
+    	          mag = mag2;
+    	          pivot = j;
+    	        }
+    	      }
+
+    	      // no pivot (error)
+    	      if (pivot == -1 || mag == 0)
+    	      {
+    	         return this;
+    	      }
+
+    	      // move pivot row into position
+    	      if (pivot != i)
+    	      {
+    	        double temp;
+    	        for (int j = i; j < n; j ++)
+    	        {
+    	          temp = b.value(i, j);
+    	          set(i, j, b.value(pivot, j));
+    	          b.set(pivot, j, temp);
+    	        }
+
+    	        for (int j = 0; j < n; j ++)
+    	        {
+    	          temp = value(i, j);
+    	          set(i, j, value(pivot, j));
+    	          set(pivot, j, temp);
+    	        }
+    	      }
+
+    	      // normalize pivot row
+    	      mag = b.value(i, i);
+    	      for (int j = i; j < n; j ++) b.set(i, j, b.value(i, j) / mag);
+    	      for (int j = 0; j < n; j ++) set(i, j, value(i, j) / mag);
+
+    	      // eliminate pivot row component from other rows
+    	      for (int k = 0; k < n; k ++)
+    	      {
+    	        if (k == i) continue;
+    	        double mag2 = b.value(k, i);
+
+    	        for (int j = i; j < n; j ++) b.set(k, j, b.value(k, j) - mag2 * b.value(i, j));
+    	        for (int j = 0; j < n; j ++) set(k, j, value(k, j) - mag2 * value(i, j));
+    	      }
+    	    }
+    	    return this;
+    	  }
 
 
     // test client
@@ -225,5 +301,29 @@ final public class Matrix {
 
         A.times(x).show();
         
+        Matrix asd = new Matrix(new double[][] {
+        		{10, -9, -12},
+        		{7, -12, 11},
+        		{-10, 10, 3},
+        });
+        asd.inverse().show();
+        
+    }
+    
+    public static Matrix FromVector3(Vector3 v)
+    {
+    	return new Matrix(new double[][] { {v.xyz[0]}, {v.xyz[1]}, {v.xyz[2]}, {1}});
+    }
+    
+    public Vector3 ToVector3ByW() {
+    	return new Vector3(value(0, 0) / value(3, 0), value(1, 0) / value(3, 0), value(2, 0) / value(3, 0));
+    }
+    
+    public Vector3 ToVector3Col() {
+    	return new Vector3(value(0, 0), value(1, 0), value(2, 0));
+    }
+    
+    public Vector3 ToVector3Row() {
+    	return new Vector3(value(0, 0), value(0, 1), value(0, 2));
     }
 }

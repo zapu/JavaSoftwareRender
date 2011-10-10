@@ -13,18 +13,18 @@ public class TriFiller {
 	
 	private Matrix screenMatrices[];
 	private Triangle tri;
-	private BufferedImage texture;
+	private BufferedImage[] textures;
 	private Vector3[] lights;
 	private Matrix normalMatrix;
 	
-	public TriFiller(Triangle t, Matrix[] mtxs, BufferedImage tex, Vector3[] ls, Matrix normalMtx) {
+	public TriFiller(Triangle t, Matrix[] mtxs, BufferedImage[] tex, Vector3[] ls, Matrix normalMtx) {
 		reset(t, mtxs, tex, ls, normalMtx);
 	}
 	
-	public void reset(Triangle t, Matrix[] mtxs, BufferedImage tex, Vector3[] ls, Matrix normalMtx) {
+	public void reset(Triangle t, Matrix[] mtxs, BufferedImage[] tex, Vector3[] ls, Matrix normalMtx) {
 		screenMatrices = mtxs;
 		tri = t;
-		texture = tex;
+		textures = tex;
 		lights = ls;
 		normalMatrix = normalMtx;
 	}
@@ -117,7 +117,8 @@ public class TriFiller {
 		BrenFill(fillDirectionRight);
 	}
 	
-	private Matrix TangentMatrix;
+	private Vector3[] lightVec;
+	private Vector3[] halfVec;
 	
 	private void FindTangents() {
 		Vertex vtx1 = tri.getVertex(topMtxIndex.val);
@@ -127,44 +128,56 @@ public class TriFiller {
 		Vector3 normal = vtx1.position.cross(vtx2.position);
 		double coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
 		if(Double.isInfinite(coef)) {
-			vtx2 = vtx3;
+			vtx2 = tri.getVertex(index3);
+			
+			normal = vtx1.position.cross(vtx2.position);
+			coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
+		}
+		
+		if(Double.isInfinite(coef)) { //still infinite...
+			vtx1 = tri.getVertex(bottomMtxIndex.val);
 			
 			normal = vtx1.position.cross(vtx2.position);
 			coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
 		}
 		
 		Vector3 tangent = vtx1.position.mul(vtx2.V).add(vtx2.position.mul(-vtx1.V)).mul(coef);
+		
+		//normal = normal.normalize();
+		//tangent = tangent.normalize();
+		
+		normal = normalMatrix.times(Matrix.FromVector3(normal)).ToVector3ByW().normalize();
+		tangent = normalMatrix.times(Matrix.FromVector3(tangent)).ToVector3ByW().normalize();
+				
 		Vector3 binormal = normal.cross(tangent);
-		System.out.println(normal + " " + tangent + " " + binormal);
 		
+		lightVec = new Vector3[3];
+		halfVec = new Vector3[3];
 		
-		
-		TangentMatrix = new Matrix(new double[][] {
-				{normal.xyz[0], normal.xyz[1], normal.xyz[2]},
-				{binormal.xyz[0], binormal.xyz[1], binormal.xyz[2]},
-				{tangent.xyz[0], tangent.xyz[1], tangent.xyz[2]},
-			});
-		
-		/*Vector3 e21 = vtx2.position.sub(vtx1.position);
-		Vector3 e31 = vtx3.position.sub(vtx1.position);
-		double u21 = vtx2.U - vtx1.U;
-		double v21 = vtx2.V - vtx1.V;
-		
-		double u31 = vtx3.U - vtx1.U;
-		double v31 = vtx3.V - vtx1.V;
-		
-		Vector3 T;
-		if(u21 != 0) {
-			T = new Vector3(e21).div(u21);
-		} else {
-			T = new Vector3(e31).div(u31);
+		Matrix matrices[] = new Matrix[]{topMtx, bottomMtx, mtx3};
+		for(int i = 0; i < 3; i++) {
+			Vector3 vertexPos = new Vector3(matrices[i].value(1, 0), matrices[i].value(1, 1), matrices[i].value(1, 2));
+			
+			Vector3 lightDir = lights[0].sub(vertexPos).normalize();
+			lightVec[i] = new Vector3(
+					lightDir.dot(tangent),
+					lightDir.dot(binormal),
+					lightDir.dot(normal)).normalize();
+			
+			
+			Vector3 eyeVec = new Vector3(
+					vertexPos.dot(tangent),
+					vertexPos.dot(binormal),
+					vertexPos.dot(normal)).normalize();
+					
+			vertexPos = vertexPos.normalize();
+			
+			halfVec[i] = lightDir.add(vertexPos).normalize();
+			halfVec[i] = new Vector3(
+					halfVec[i].dot(tangent),
+					halfVec[i].dot(binormal),
+					halfVec[i].dot(normal)).normalize();
 		}
-		
-		T = T.normalize();
-		Vector3 N = vtx1.normal.normalize();
-		Vector3 BN = N.cross(T);
-		System.out.println(T.toString() + " " + N + " " + BN);*/
-		
 	}
 	
 	private void BrenFill(boolean fillRight) {
@@ -264,6 +277,14 @@ public class TriFiller {
 		return x * (1 - w) + y * w;
 	}
 	
+	private double interpolate(double val1, double val2, double val3, double b1, double b2, double b3, double w) {
+		double w1 = topMtx.value(0, 3);
+		double w2 = bottomMtx.value(0, 3);
+		double w3 = mtx3.value(0, 3);
+		
+		return (b1 * (val1 / w1) + b2 * (val2 / w2) + b3 * (val3 / w3))/w;
+	}
+	
 	private boolean drawPixel(int x, int y) {		
 		int x1 = (int)GetXComponentFromMatrix(topMtx);
 		int y1 = (int)GetYComponentFromMatrix(topMtx);
@@ -282,7 +303,7 @@ public class TriFiller {
 		double b3 = 1 - b1 - b2;
 		
 		if((b1 >= 0 && b1 <= 1) && (b2 >= 0 && b2 <= 1) && (b3 >= 0 && b3 <= 1)) {
-			if(x < 0 || y < 0 || x >= 800 || y >= 600) {
+			if(x < 0 || y < 0 || x >= MainComponent.width || y >= MainComponent.height) {
 				return true;
 			}
 			
@@ -293,11 +314,11 @@ public class TriFiller {
 			double z = b1 * (1/z1) + b2 * (1/z2) + b3 * (1/z3);
 			//z = 1 / z;
 			
-			int bufferPos = x + y * 800;
+			int bufferPos = x + y * MainComponent.width;
 			
 			if(z >= ZBuffer[bufferPos])
 				return true;
-			
+						
 			double colorR = clamp(
 					b1 * ((double)vertex1.color.getRed() / 255) + 
 					b2 * ((double)vertex2.color.getRed() / 255) + 
@@ -319,20 +340,48 @@ public class TriFiller {
 			double w3 = mtx3.value(0, 3);
 			
 			double w = b1 * (1/w1) + b2 * (1/w2) + b3 * (1/w3);
-			double u = (b1 * (vertex1.U / w1) + b2 * (vertex2.U / w2) + b3 * (vertex3.U / w3))/w;
-			double v = (b1 * (vertex1.V / w1) + b2 * (vertex2.V / w2) + b3 * (vertex3.V / w3))/w;
 			
-			int texelX = clamp((int)(u * texture.getWidth()), 0, texture.getWidth()-1);
-			int texelY = clamp((int)(v * texture.getHeight()), 0, texture.getHeight()-1);
+			double u = interpolate(vertex1.U, vertex2.U, vertex3.U, b1, b2, b3, w);
+			double v = interpolate(vertex1.V, vertex2.V, vertex3.V, b1, b2, b3, w);
+			
+			int texelX = clamp((int)(u * textures[0].getWidth()), 0, textures[0].getWidth()-1);
+			int texelY = clamp((int)(v * textures[0].getHeight()), 0, textures[0].getHeight()-1);
 						
 			Color colorColor = new Color((float)colorR, (float)colorG, (float)colorB);
-			Color texColor = new Color(texture.getRGB(texelX, texelY));
-			float weighto = 0.7f;
+			Color texColor = new Color(textures[0].getRGB(texelX, texelY));
+			float weighto = 1.0f;
 			
+			Color normalMapColor = new Color(textures[1].getRGB(texelX, texelY));
+			Vector3 localNormal = new Vector3(
+					2.0 * (normalMapColor.getRed() / 255.0) - 1.0,
+					2.0 * (normalMapColor.getGreen() / 255.0) - 1.0,
+					2.0 * (normalMapColor.getBlue() / 255.0) - 1.0
+					).normalize();
+			
+			double diffuseMaterial = 0.5;
+			double diffuseLight = 0.5;
+			
+			Vector3 lightVector = new Vector3(
+					interpolate(lightVec[0].x(), lightVec[1].x(), lightVec[2].x(), b1, b2, b3, w),
+					interpolate(lightVec[0].y(), lightVec[1].y(), lightVec[2].y(), b1, b2, b3, w),
+					interpolate(lightVec[0].z(), lightVec[1].z(), lightVec[2].z(), b1, b2, b3, w)).normalize();
+			double lamberFactor = Math.max(localNormal.dot(lightVector), 0.0);
+			
+			Vector3 halfVector = new Vector3(
+					interpolate(halfVec[0].x(), halfVec[1].x(), halfVec[2].x(), b1, b2, b3, w),
+					interpolate(halfVec[0].y(), halfVec[1].y(), halfVec[2].y(), b1, b2, b3, w),
+					interpolate(halfVec[0].z(), halfVec[1].z(), halfVec[2].z(), b1, b2, b3, w)).normalize();
+			
+			double specularFactor = Math.max(localNormal.dot(halfVector), 0.0) * 0.1f;
+
+			float diffuse = (float)clamp(0.1 + 0.9*(diffuseMaterial * diffuseLight * lamberFactor),0.,1.0);
+
 			Color fragColor = new Color(
-					mix((float)colorColor.getRed() / 255, (float)texColor.getRed() / 255, weighto),
-					mix((float)colorColor.getGreen() / 255, (float)texColor.getGreen() / 255, weighto),
-					mix((float)colorColor.getBlue() / 255, (float)texColor.getBlue() / 255, weighto));
+					(float)clamp(diffuse*mix((float)colorColor.getRed() / 255, (float)texColor.getRed() / 255, weighto) + specularFactor, 0, 1),
+					(float)clamp(diffuse*mix((float)colorColor.getGreen() / 255, (float)texColor.getGreen() / 255, weighto) + specularFactor, 0, 1),
+					(float)clamp(diffuse*mix((float)colorColor.getBlue() / 255, (float)texColor.getBlue() / 255, weighto) + specularFactor, 0, 1));
+			
+			//fragColor = new Color(0.3f + fragLight,0.3f + fragLight,0.3f + fragLight); 
 
 			framebuffer[bufferPos] = fragColor.getRGB();
 			ZBuffer[bufferPos] = z;

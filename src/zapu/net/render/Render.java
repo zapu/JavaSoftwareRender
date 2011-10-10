@@ -1,6 +1,7 @@
 package zapu.net.render;
 
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -12,24 +13,30 @@ public class Render {
 	Matrix ViewMatrix;
 	Matrix ProjectionMatrix;
 	Matrix ModelMatrix;
-	
-	int width = 800;
-	int height = 600;
-	
-	private double[] ZBuffer = new double[480000]; 
+
+	private double[] ZBuffer = new double[MainComponent.width * MainComponent.height]; 
 		
 	private double Zfar = 50;
 	private double Znear = 1.0;
 	
-	private BufferedImage texture;
+	private BufferedImage[] textures;
+	
+	private Vector3[] sceneLights;
 	
 	public Render() {
 		try {
-			texture = ImageIO.read(Render.class.getResource("/resources/rockwall.jpg"));
+			textures = new BufferedImage[]{
+				ImageIO.read(Render.class.getResource("/resources/fieldstone-c.jpg")),
+				ImageIO.read(Render.class.getResource("/resources/fieldstone-n.jpg")),
+			};
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		sceneLights = new Vector3[] {
+				new Vector3(1,2,1)
+		};
 		
 		tris = new Triangle[] {
 			new Triangle(
@@ -80,14 +87,14 @@ public class Render {
 					
 					
 			new Triangle(
-					new Vertex(new Vector3(0,1,-1), new Vector3(0,0,-1), Color.RED, 0, 0), 
-					new Vertex(new Vector3(1,1,-1), new Vector3(0,0,-1), Color.RED, 1, 0), 
-					new Vertex(new Vector3(0,1,0), new Vector3(0,0,-1), Color.RED, 0, 1)),
+					new Vertex(new Vector3(0,1,-1), new Vector3(0,1,0), Color.RED, 0, 1), 
+					new Vertex(new Vector3(1,1,-1), new Vector3(0,1,0), Color.RED, 1, 1), 
+					new Vertex(new Vector3(0,1,0), new Vector3(0,1,0), Color.RED, 0, 0)),
 					
 			new Triangle(
-					new Vertex(new Vector3(0,1,0), new Vector3(0,0,-1), Color.RED, 1, 0),
-					new Vertex(new Vector3(1,1,0), new Vector3(0,0,-1), Color.RED, 1, 1), 
-					new Vertex(new Vector3(1,1,-1), new Vector3(0,0,-1), Color.RED, 0, 1)),
+					new Vertex(new Vector3(0,1,0), new Vector3(0,1,0), Color.RED, 0, 0),
+					new Vertex(new Vector3(1,1,0), new Vector3(0,1,0), Color.RED, 1, 0), 
+					new Vertex(new Vector3(1,1,-1), new Vector3(0,1,0), Color.RED, 1, 1)),
 		};
 		
 		double w = 1.0 / Math.tan(Math.toRadians(90) / 2);
@@ -192,7 +199,7 @@ public class Render {
 	double frame = 0;
 	public void draw(Graphics g, int[] framebuffer) {
 		
-		for(int i = 0; i < 480000; i++)
+		for(int i = 0; i < MainComponent.width * MainComponent.height; i++)
 			ZBuffer[i] = Zfar;
 		
 		//double rot = 60 * Math.sin(frame++ / 50);
@@ -204,8 +211,21 @@ public class Render {
 		double screen_points_w[] = new double[3];
 		
 		Matrix modelViewMatrix = ViewMatrix.times(ModelMatrix);
-		Matrix normalMatrix = modelViewMatrix.solve(new Matrix(new double[][] { {1}, {1}, {1}, {1} })).transpose();
-
+		Matrix normalMatrix = modelViewMatrix.inverse().transpose();
+		
+		Vector3[] lights = new Vector3[sceneLights.length];
+		
+		frame++;
+		
+		for(int i = 0; i < sceneLights.length; i++) {
+			Matrix pointMatrix = Matrix.FromVector3(sceneLights[i]);
+			//pointMatrix = pointMatrix.plus(new Matrix(new double[][]{ {5 * Math.sin(frame / 20)}, {0}, {5 * Math.cos(frame / 20)}, {0} }));
+			pointMatrix = modelViewMatrix.times(pointMatrix);
+			pointMatrix = ProjectionMatrix.times(pointMatrix);
+			
+			lights[i] = pointMatrix.ToVector3ByW();
+		}
+		
 		for(Triangle tri : tris) {
 			boolean clipTri = false;
 			
@@ -230,22 +250,35 @@ public class Render {
 					break;
 				}
 			
-				int screenX = (int) (width / 2 * normalizedX + width / 2);
-				int screenY = (int) (height / 2 *  normalizedY + height / 2);
+				int screenX = (int) (MainComponent.width / 2 * normalizedX + MainComponent.width / 2);
+				int screenY = (int) (MainComponent.height / 2 *  normalizedY + MainComponent.height / 2);
 				double screenZ = (Zfar - Znear) / 2 * normalizedZ + (Zfar + Znear) / 2;
 
 				screen_points[i] = new Vector3(screenX, screenY, screenZ);
 				screen_points_w[i] = w;
-				screen_matrices[i] = new Matrix(new double[][]{ {screenX, screenY, screenZ, w} });
+				
+				screen_matrices[i] = new Matrix(new double[][]{ {screenX, screenY, screenZ, w},
+						{normalizedX, normalizedY, normalizedZ, 0}});
+			
 			}
-		
 			
 			if(clipTri)
 				continue;
 			
-			TriFiller filler = new TriFiller(tri, screen_matrices, texture, new Vector3[]{}, normalMatrix);
+			TriFiller filler = new TriFiller(tri, screen_matrices, textures, lights, normalMatrix);
 			filler.FillTriangle(g, framebuffer, ZBuffer);
 		}
-		
+	}
+	
+	void postRender(Graphics g) {
+		g.setColor(Color.WHITE);
+		g.drawString("Fov: " + currentFov, 10, 10);
+	}
+
+	int currentFov = 90;
+	public void zoomView(int wheelRotation) {
+		currentFov = TriFiller.clamp(currentFov + wheelRotation, 30, 110);
+		ProjectionMatrix.set(0, 0, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
+		ProjectionMatrix.set(1, 1, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
 	}
 }

@@ -9,6 +9,8 @@ import java.awt.Point;
 import java.awt.PointerInfo;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
@@ -16,7 +18,7 @@ import java.awt.image.DataBufferInt;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-public class MainComponent extends Canvas implements Runnable, MouseListener
+public class MainComponent extends Canvas implements Runnable, MouseListener, MouseWheelListener
 {
 	protected JFrame frame;
 	
@@ -43,18 +45,22 @@ public class MainComponent extends Canvas implements Runnable, MouseListener
 		frame.pack();
 		frame.setLocationRelativeTo(null);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setSize(800, 600);
+		frame.setSize(window_width, window_height);
 		frame.setVisible(true);
 		
 		component.frame = frame;
 		component.start();
 		
 		component.addMouseListener(component);
+		component.addMouseWheelListener(component);
 	}
 	
 	private boolean running = false;
-	private int width = 800;
-	private int height = 600;
+	public static final int width = 500;
+	public static final int height = 400;
+	
+	public static final int window_width = width*2;
+	public static final int window_height = height*2;
 
 	private void start() {
 		Thread thread = new Thread(this);
@@ -100,14 +106,15 @@ public class MainComponent extends Canvas implements Runnable, MouseListener
 			return;
 		}
 		
-		for(int i = 0; i < 480000; i++) {
+		for(int i = 0; i < width*height; i++) {
 			imgPixels[i] = 0x00000000;
 		}
 		
 		Graphics g = bs.getDrawGraphics();
 		g.fillRect(0, 0, width, height);
 		render.draw(g, imgPixels);
-		g.drawImage(img, 0, 0, width, height, null);
+		g.drawImage(img, 0, 0, window_width, window_height, null);
+		render.postRender(g);
 		g.dispose();
 		bs.show();
 	}
@@ -128,7 +135,7 @@ public class MainComponent extends Canvas implements Runnable, MouseListener
 		int screenX = (int)(p.getX() - p2.getX());
 		int screenY = (int)(p.getY() - p2.getY());
 		
-		if(screenX < 0 || screenX > width || screenY < 0 || screenY > height)
+		if(screenX < 0 || screenX > window_width || screenY < 0 || screenY > window_height)
 			return;
 		
 		if(screenMovedYet) {
@@ -152,7 +159,7 @@ public class MainComponent extends Canvas implements Runnable, MouseListener
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
@@ -184,5 +191,11 @@ public class MainComponent extends Canvas implements Runnable, MouseListener
 		} else if(e.getButton() == MouseEvent.BUTTON3) {
 			moving = false;
 		}	
+	}
+
+	@Override
+	public void mouseWheelMoved(MouseWheelEvent e) {
+		render.zoomView(e.getWheelRotation());
+		
 	}
 }
