@@ -219,7 +219,7 @@ public class Render {
 		
 		for(int i = 0; i < sceneLights.length; i++) {
 			Matrix pointMatrix = Matrix.FromVector3(sceneLights[i]);
-			//pointMatrix = pointMatrix.plus(new Matrix(new double[][]{ {5 * Math.sin(frame / 20)}, {0}, {5 * Math.cos(frame / 20)}, {0} }));
+			pointMatrix = pointMatrix.plus(new Matrix(new double[][]{ {5 * Math.sin(frame / 20)}, {0}, {5 * Math.cos(frame / 20)}, {0} }));
 			pointMatrix = modelViewMatrix.times(pointMatrix);
 			pointMatrix = ProjectionMatrix.times(pointMatrix);
 			
