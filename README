@@ -1,0 +1,11 @@
+Software 3d renderer, for learning purposes
+
+Painfully slow and bug-ridden but draws perspective-correct textured triangles with some not-so-correct lighting.
+
+Expect non commented messy code. But it should be clean enough to follow and write your own renderer.
+
+Vertex projecting should resemble OpenGL pipeline.
+
+Texture filling - not quite. Uses Bresenham's line algorythm and barycentric coordinates to interpolate texture UV/colors/etc.
+
+Dynamic lighting with bump mapping is there, but is not correct for some reason.
