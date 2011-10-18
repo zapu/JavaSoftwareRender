@@ -107,7 +107,14 @@ public class Render {
 				newTri.setVertex(v, vtx);
 			}
 			triList.add(newTri);
-			triList.add(predefTris[i]);
+
+			newTri = new Triangle(predefTris[i]);
+			for(int v = 0; v < 3; v++) {
+				Vertex vtx = newTri.getVertex(v);
+				vtx.position = vtx.position.add(new Vector3(3,0,2));
+				newTri.setVertex(v, vtx);
+			}
+			triList.add(newTri);
 		}
 		
 		tris = triList.toArray(new Triangle[triList.size()]);
