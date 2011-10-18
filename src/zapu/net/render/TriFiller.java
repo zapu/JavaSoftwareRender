@@ -144,36 +144,7 @@ public class TriFiller {
 		binormal = binormal.normalize();
 		
 		Vertex vertices[] = new Vertex[]{vtx1, vtx2, vtx3};
-		/*
-		//Vector3 normal = vtx1.position.cross(vtx2.position);
-		
-		double coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
-		if(Double.isInfinite(coef)) {
-			vtx2 = tri.getVertex(index3);
-			vtx3 = tri.getVertex(bottomMtxIndex.val);
-			
-			//normal = vtx1.position.cross(vtx2.position);
-			coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
-		}
-		
-		if(Double.isInfinite(coef)) { //still infinite...
-			vtx1 = tri.getVertex(bottomMtxIndex.val);
-			vtx3 = tri.getVertex(topMtxIndex.val);
-			
-			//normal = vtx1.position.cross(vtx2.position);
-			coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
-		}
-		
-		Vector3 v1 = vtx1.position.sub(vtx3.position);
-		Vector3 v2 = vtx2.position.sub(vtx3.position);
-		
-		//Vector3 normal = vtx3.position.sub(vtx1.position).cross(vtx3.position.sub(vtx2.position)).normalize();
-		Vector3 normal = v1.cross(v2).normalize();
-		Vector3 tangent = v1.mul(vtx2.V).add(v2.mul(-vtx1.V)).mul(coef).normalize();
-				
-		Vector3 binormal = normal.cross(tangent);
-		*/
-		
+
 		lightVec = new Vector3[3];
 		halfVec = new Vector3[3];
 		
@@ -400,7 +371,7 @@ public class TriFiller {
 			
 			double specularFactor = Math.max(localNormal.dot(halfVector), 0.0) * 0.1f;
 
-			float diffuse = (float)clamp(0.1 + 0.9*(diffuseMaterial * diffuseLight * lamberFactor),0.,1.0);
+			float diffuse = (float)clamp((diffuseMaterial * diffuseLight * lamberFactor),0.,1.0);
 			
 			Color fragColor = new Color(
 					(float)clamp(diffuse*mix((float)colorColor.getRed() / 255, (float)texColor.getRed() / 255, weighto) + specularFactor, 0, 1),
