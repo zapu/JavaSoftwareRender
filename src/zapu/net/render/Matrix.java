@@ -41,7 +41,7 @@ final public class Matrix {
     }
 
     // copy constructor
-    private Matrix(Matrix A) { this(A.data); }
+    public Matrix(Matrix A) { this(A.data); }
 
     // create and return a random M-by-N matrix with values between 0 and 1
     public static Matrix random(int M, int N) {
@@ -124,7 +124,7 @@ final public class Matrix {
 
     // return x = A^-1 b, assuming A is square and has full rank
     public Matrix solve(Matrix rhs) {
-        if (M != N || rhs.M != N || rhs.N != 1)
+        if (M != N || rhs.M != N)// || rhs.N != 1)
             throw new RuntimeException("Illegal matrix dimensions.");
 
         // create copies of the data

@@ -12,6 +12,10 @@ public class Triangle {
 		vertices[2] = new Vertex(c);
 	}
 	
+	public Triangle(Triangle tri) {
+		this(tri.vertices[0], tri.vertices[1], tri.vertices[2]);
+	}
+	
 	public Triangle() {
 		vertices = new Vertex[3];
 	}

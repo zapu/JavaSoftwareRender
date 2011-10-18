@@ -56,11 +56,11 @@ public class MainComponent extends Canvas implements Runnable, MouseListener, Mo
 	}
 	
 	private boolean running = false;
-	public static final int width = 500;
-	public static final int height = 400;
+	public static final int width = 800;
+	public static final int height = 600;
 	
-	public static final int window_width = width*2;
-	public static final int window_height = height*2;
+	public static final int window_width = width;
+	public static final int window_height = height;
 
 	private void start() {
 		Thread thread = new Thread(this);

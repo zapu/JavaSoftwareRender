@@ -5,6 +5,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import javax.imageio.ImageIO;
 
@@ -35,10 +36,10 @@ public class Render {
 		}
 		
 		sceneLights = new Vector3[] {
-				new Vector3(1,2,1)
+				new Vector3(1,1.2,1)
 		};
 		
-		tris = new Triangle[] {
+		Triangle[] predefTris = new Triangle[] {
 			new Triangle(
 					new Vertex(new Vector3(0,0,0), new Vector3(0,0,1), Color.BLUE, 0, 0),
 					new Vertex(new Vector3(0,1,0), new Vector3(0,0,1), Color.WHITE, 0, 1),
@@ -96,6 +97,21 @@ public class Render {
 					new Vertex(new Vector3(1,1,0), new Vector3(0,1,0), Color.RED, 1, 0), 
 					new Vertex(new Vector3(1,1,-1), new Vector3(0,1,0), Color.RED, 1, 1)),
 		};
+		
+		ArrayList<Triangle> triList = new ArrayList<Triangle>();
+		for(int i = 0; i < predefTris.length; i++) {
+			Triangle newTri = new Triangle(predefTris[i]);
+			for(int v = 0; v < 3; v++) {
+				Vertex vtx = newTri.getVertex(v);
+				vtx.position = vtx.position.add(new Vector3(2,0,1));
+				newTri.setVertex(v, vtx);
+			}
+			triList.add(newTri);
+			triList.add(predefTris[i]);
+		}
+		
+		tris = triList.toArray(new Triangle[triList.size()]);
+
 		
 		double w = 1.0 / Math.tan(Math.toRadians(90) / 2);
 		double h = 1.0 / Math.tan(Math.toRadians(90) / 2);
@@ -211,7 +227,8 @@ public class Render {
 		double screen_points_w[] = new double[3];
 		
 		Matrix modelViewMatrix = ViewMatrix.times(ModelMatrix);
-		Matrix normalMatrix = modelViewMatrix.inverse().transpose();
+		//Matrix normalMatrix = modelViewMatrix.solve(Matrix.identity(4)).transpose();
+		Matrix normalMatrix = new Matrix(modelViewMatrix);
 		
 		Vector3[] lights = new Vector3[sceneLights.length];
 		
@@ -219,9 +236,9 @@ public class Render {
 		
 		for(int i = 0; i < sceneLights.length; i++) {
 			Matrix pointMatrix = Matrix.FromVector3(sceneLights[i]);
-			pointMatrix = pointMatrix.plus(new Matrix(new double[][]{ {5 * Math.sin(frame / 20)}, {0}, {5 * Math.cos(frame / 20)}, {0} }));
-			pointMatrix = modelViewMatrix.times(pointMatrix);
-			pointMatrix = ProjectionMatrix.times(pointMatrix);
+			pointMatrix = pointMatrix.plus(new Matrix(new double[][]{ {5 * Math.sin(frame / 20)}, {0 * Math.sin(frame / 20)}, {0 * Math.sin(frame / 20)}, {0} }));
+			//pointMatrix = modelViewMatrix.times(pointMatrix);
+			//pointMatrix = ProjectionMatrix.times(pointMatrix);
 			
 			lights[i] = pointMatrix.ToVector3ByW();
 		}
@@ -258,7 +275,7 @@ public class Render {
 				screen_points_w[i] = w;
 				
 				screen_matrices[i] = new Matrix(new double[][]{ {screenX, screenY, screenZ, w},
-						{normalizedX, normalizedY, normalizedZ, 0}});
+						{normalizedX, normalizedY, normalizedZ, w}});
 			
 			}
 			

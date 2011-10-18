@@ -125,38 +125,60 @@ public class TriFiller {
 		Vertex vtx2 = tri.getVertex(bottomMtxIndex.val);
 		Vertex vtx3 = tri.getVertex(index3);
 		
-		Vector3 normal = vtx1.position.cross(vtx2.position);
+		Vector3 edge1 = vtx2.position.sub(vtx1.position);
+		Vector3 edge2 = vtx3.position.sub(vtx1.position);
+		double edge1u = vtx2.U - vtx1.U;
+		double edge1v = vtx2.V - vtx1.V;
+		double edge2u = vtx3.U - vtx1.U;
+		double edge2v = vtx3.V - vtx1.V;
+		
+		double cp = edge1v * edge2u - edge1u * edge2v;
+		if(cp == 0.0)
+			cp = 0.1;
+		double mul = 1.0 / cp;
+		Vector3 tangent = (edge1.mul(-edge2v).add(edge2.mul(edge1v))).mul(mul);
+		Vector3 binormal = (edge1.mul(-edge2u).add(edge2.mul(edge1u))).mul(mul);
+		Vector3 normal = vtx1.normal;
+		
+		tangent = tangent.normalize();
+		binormal = binormal.normalize();
+		
+		Vertex vertices[] = new Vertex[]{vtx1, vtx2, vtx3};
+		/*
+		//Vector3 normal = vtx1.position.cross(vtx2.position);
+		
 		double coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
 		if(Double.isInfinite(coef)) {
 			vtx2 = tri.getVertex(index3);
+			vtx3 = tri.getVertex(bottomMtxIndex.val);
 			
-			normal = vtx1.position.cross(vtx2.position);
+			//normal = vtx1.position.cross(vtx2.position);
 			coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
 		}
 		
 		if(Double.isInfinite(coef)) { //still infinite...
 			vtx1 = tri.getVertex(bottomMtxIndex.val);
+			vtx3 = tri.getVertex(topMtxIndex.val);
 			
-			normal = vtx1.position.cross(vtx2.position);
+			//normal = vtx1.position.cross(vtx2.position);
 			coef = 1 / (vtx1.U * vtx2.V - vtx2.U * vtx1.V);
 		}
 		
-		Vector3 tangent = vtx1.position.mul(vtx2.V).add(vtx2.position.mul(-vtx1.V)).mul(coef);
+		Vector3 v1 = vtx1.position.sub(vtx3.position);
+		Vector3 v2 = vtx2.position.sub(vtx3.position);
 		
-		//normal = normal.normalize();
-		//tangent = tangent.normalize();
-		
-		normal = normalMatrix.times(Matrix.FromVector3(normal)).ToVector3ByW().normalize();
-		tangent = normalMatrix.times(Matrix.FromVector3(tangent)).ToVector3ByW().normalize();
+		//Vector3 normal = vtx3.position.sub(vtx1.position).cross(vtx3.position.sub(vtx2.position)).normalize();
+		Vector3 normal = v1.cross(v2).normalize();
+		Vector3 tangent = v1.mul(vtx2.V).add(v2.mul(-vtx1.V)).mul(coef).normalize();
 				
 		Vector3 binormal = normal.cross(tangent);
+		*/
 		
 		lightVec = new Vector3[3];
 		halfVec = new Vector3[3];
 		
-		Matrix matrices[] = new Matrix[]{topMtx, bottomMtx, mtx3};
 		for(int i = 0; i < 3; i++) {
-			Vector3 vertexPos = new Vector3(matrices[i].value(1, 0), matrices[i].value(1, 1), matrices[i].value(1, 2));
+			Vector3 vertexPos = vertices[i].position;
 			
 			Vector3 lightDir = lights[0].sub(vertexPos).normalize();
 			lightVec[i] = new Vector3(
@@ -318,28 +340,32 @@ public class TriFiller {
 			
 			if(z >= ZBuffer[bufferPos])
 				return true;
-						
-			double colorR = clamp(
-					b1 * ((double)vertex1.color.getRed() / 255) + 
-					b2 * ((double)vertex2.color.getRed() / 255) + 
-					b3 * ((double)vertex3.color.getRed() / 255), 
-					0.0, 1.0);
-			double colorG = clamp(
-					b1 * ((double)vertex1.color.getGreen() / 255) + 
-					b2 * ((double)vertex2.color.getGreen() / 255) + 
-					b3 * ((double)vertex3.color.getGreen() / 255), 
-					0.0, 1.0);
-			double colorB = clamp(
-					b1 * ((double)vertex1.color.getBlue() / 255) + 
-					b2 * ((double)vertex2.color.getBlue() / 255) + 
-					b3 * ((double)vertex3.color.getBlue() / 255), 
-					0.0, 1.0);
-			
+									
 			double w1 = topMtx.value(0, 3);
 			double w2 = bottomMtx.value(0, 3);
 			double w3 = mtx3.value(0, 3);
 			
 			double w = b1 * (1/w1) + b2 * (1/w2) + b3 * (1/w3);
+			
+			
+			double colorR = clamp(
+					interpolate(((double)vertex1.color.getRed() / 255), 
+					((double)vertex2.color.getRed() / 255),
+					((double)vertex3.color.getRed() / 255),
+					b1, b2, b3, w),
+					0.0, 1.0);
+			double colorG = clamp(
+					interpolate(((double)vertex1.color.getGreen() / 255), 
+							((double)vertex2.color.getGreen() / 255),
+							((double)vertex3.color.getGreen() / 255),
+							b1, b2, b3, w),
+					0.0, 1.0);
+			double colorB = clamp(
+					interpolate(((double)vertex1.color.getBlue() / 255), 
+							((double)vertex2.color.getBlue() / 255),
+							((double)vertex3.color.getBlue() / 255),
+							b1, b2, b3, w),
+					0.0, 1.0);
 			
 			double u = interpolate(vertex1.U, vertex2.U, vertex3.U, b1, b2, b3, w);
 			double v = interpolate(vertex1.V, vertex2.V, vertex3.V, b1, b2, b3, w);
@@ -375,7 +401,7 @@ public class TriFiller {
 			double specularFactor = Math.max(localNormal.dot(halfVector), 0.0) * 0.1f;
 
 			float diffuse = (float)clamp(0.1 + 0.9*(diffuseMaterial * diffuseLight * lamberFactor),0.,1.0);
-
+			
 			Color fragColor = new Color(
 					(float)clamp(diffuse*mix((float)colorColor.getRed() / 255, (float)texColor.getRed() / 255, weighto) + specularFactor, 0, 1),
 					(float)clamp(diffuse*mix((float)colorColor.getGreen() / 255, (float)texColor.getGreen() / 255, weighto) + specularFactor, 0, 1),
