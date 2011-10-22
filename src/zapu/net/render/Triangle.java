@@ -1,7 +1,5 @@
 package zapu.net.render;
 
-import java.awt.Color;
-
 public class Triangle {
 	private Vertex vertices[];
 	
