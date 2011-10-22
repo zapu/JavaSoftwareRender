@@ -130,14 +130,6 @@ public class Render {
 				{0, 0, -1, 0}
 		});
 		
-		/*ProjectionMatrix = new Matrix(new double[][] {
-				{2, 0, 0, 0},
-				{0, 2, 0, 0},
-				{0, 0, -1.22, -2.22},
-				{0, 0, -1, 0}
-		});*/
-		ProjectionMatrix.show();
-		
 		ModelMatrix = new Matrix(new double[][]
  		 				{
  		 					{1, 0, 0, -3},
@@ -189,12 +181,6 @@ public class Render {
 	    view.set(2, 2, cx*cy);
 	}
 	
-	private Vector3 RotateVector(Vector3 vec, double angle) {
-		return new Vector3(vec.x() * Math.cos(Math.toRadians(angle)) - vec.y() * Math.sin(Math.toRadians(angle)),
-				vec.x() * Math.sin(Math.toRadians(angle)) + vec.y() * Math.cos(Math.toRadians(angle)),
-				vec.z());
-	}
-	
 	private double viewHorizontal = 0;
 	private double viewVertical = 0;
 	
@@ -224,19 +210,12 @@ public class Render {
 		
 		for(int i = 0; i < MainComponent.width * MainComponent.height; i++)
 			ZBuffer[i] = Zfar;
-		
-		//double rot = 60 * Math.sin(frame++ / 50);
-		//ViewMatrix.set(0, 3, -1 + rot);
-		//AnglesToAxes(new Vector3(0, rot, 0), ViewMatrix);
-		
+				
 		Matrix screen_matrices[] = new Matrix[3];
 		Vector3 screen_points[] = new Vector3[3];
 		double screen_points_w[] = new double[3];
 		
 		Matrix modelViewMatrix = ViewMatrix.times(ModelMatrix);
-		//Matrix normalMatrix = modelViewMatrix.solve(Matrix.identity(4)).transpose();
-		Matrix normalMatrix = new Matrix(modelViewMatrix);
-		
 		Vector3[] lights = new Vector3[sceneLights.length];
 		
 		frame++;
@@ -244,11 +223,11 @@ public class Render {
 		for(int i = 0; i < sceneLights.length; i++) {
 			Matrix pointMatrix = Matrix.FromVector3(sceneLights[i]);
 			pointMatrix = pointMatrix.plus(new Matrix(new double[][]{ {5 * Math.sin(frame / 20)}, {0 * Math.sin(frame / 20)}, {0 * Math.sin(frame / 20)}, {0} }));
-			//pointMatrix = modelViewMatrix.times(pointMatrix);
-			//pointMatrix = ProjectionMatrix.times(pointMatrix);
 			
 			lights[i] = pointMatrix.ToVector3ByW();
 		}
+		
+		TriFiller filler = new TriFiller();
 		
 		for(Triangle tri : tris) {
 			boolean clipTri = false;
@@ -259,8 +238,6 @@ public class Render {
 				Matrix pointMatrix = new Matrix(
 						new double[][] { { point.position.x() }, { point.position.y() } , { point.position.z() }, { 1 } });
 				
-				//Matrix eyeMatrix = ModelMatrix.times(pointMatrix);
-				//eyeMatrix = ViewMatrix.times(eyeMatrix);
 				Matrix eyeMatrix = modelViewMatrix.times(pointMatrix);
 				Matrix clipMatrix = ProjectionMatrix.times(eyeMatrix);
 				
@@ -289,7 +266,7 @@ public class Render {
 			if(clipTri)
 				continue;
 			
-			TriFiller filler = new TriFiller(tri, screen_matrices, textures, lights, normalMatrix);
+			filler.reset(tri, screen_matrices, textures, lights);
 			filler.FillTriangle(g, framebuffer, ZBuffer);
 		}
 	}
@@ -301,7 +278,7 @@ public class Render {
 
 	int currentFov = 90;
 	public void zoomView(int wheelRotation) {
-		currentFov = TriFiller.clamp(currentFov + wheelRotation, 30, 110);
+		currentFov = MathTools.Clamp(currentFov + wheelRotation, 30, 110);
 		ProjectionMatrix.set(0, 0, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
 		ProjectionMatrix.set(1, 1, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
 	}

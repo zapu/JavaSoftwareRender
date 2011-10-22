@@ -15,18 +15,20 @@ public class TriFiller {
 	private Triangle tri;
 	private BufferedImage[] textures;
 	private Vector3[] lights;
-	private Matrix normalMatrix;
 	
-	public TriFiller(Triangle t, Matrix[] mtxs, BufferedImage[] tex, Vector3[] ls, Matrix normalMtx) {
-		reset(t, mtxs, tex, ls, normalMtx);
+	public TriFiller() {
+		
 	}
 	
-	public void reset(Triangle t, Matrix[] mtxs, BufferedImage[] tex, Vector3[] ls, Matrix normalMtx) {
+	public TriFiller(Triangle t, Matrix[] mtxs, BufferedImage[] tex, Vector3[] ls) {
+		reset(t, mtxs, tex, ls);
+	}
+	
+	public void reset(Triangle t, Matrix[] mtxs, BufferedImage[] tex, Vector3[] ls) {
 		screenMatrices = mtxs;
 		tri = t;
 		textures = tex;
 		lights = ls;
-		normalMatrix = normalMtx;
 	}
 	
 	private static double GetXComponentFromMatrix(Matrix m) {
@@ -156,12 +158,6 @@ public class TriFiller {
 					lightDir.dot(tangent),
 					lightDir.dot(binormal),
 					lightDir.dot(normal)).normalize();
-			
-			
-			Vector3 eyeVec = new Vector3(
-					vertexPos.dot(tangent),
-					vertexPos.dot(binormal),
-					vertexPos.dot(normal)).normalize();
 					
 			vertexPos = vertexPos.normalize();
 			
@@ -248,29 +244,7 @@ public class TriFiller {
 		}
 	}
 	
-	public static double clamp(double val, double min, double max) {
-		if(val > max)
-			return max;
-		else if(val < min)
-			return min;
-		else
-			return val;
-	}
-	
-	public static int clamp(int val, int min, int max) {
-		if(val > max)
-			return max;
-		else if(val < min)
-			return min;
-		else
-			return val;
-	}
-	
-	public static float mix(float x, float y, float w) {
-		return x * (1 - w) + y * w;
-	}
-	
-	private double interpolate(double val1, double val2, double val3, double b1, double b2, double b3, double w) {
+	private double PerspectiveInterpolate(double val1, double val2, double val3, double b1, double b2, double b3, double w) {
 		double w1 = topMtx.value(0, 3);
 		double w2 = bottomMtx.value(0, 3);
 		double w3 = mtx3.value(0, 3);
@@ -319,30 +293,30 @@ public class TriFiller {
 			double w = b1 * (1/w1) + b2 * (1/w2) + b3 * (1/w3);
 			
 			
-			double colorR = clamp(
-					interpolate(((double)vertex1.color.getRed() / 255), 
+			double colorR = MathTools.Clamp(
+					PerspectiveInterpolate(((double)vertex1.color.getRed() / 255), 
 					((double)vertex2.color.getRed() / 255),
 					((double)vertex3.color.getRed() / 255),
 					b1, b2, b3, w),
 					0.0, 1.0);
-			double colorG = clamp(
-					interpolate(((double)vertex1.color.getGreen() / 255), 
+			double colorG = MathTools.Clamp(
+					PerspectiveInterpolate(((double)vertex1.color.getGreen() / 255), 
 							((double)vertex2.color.getGreen() / 255),
 							((double)vertex3.color.getGreen() / 255),
 							b1, b2, b3, w),
 					0.0, 1.0);
-			double colorB = clamp(
-					interpolate(((double)vertex1.color.getBlue() / 255), 
+			double colorB = MathTools.Clamp(
+					PerspectiveInterpolate(((double)vertex1.color.getBlue() / 255), 
 							((double)vertex2.color.getBlue() / 255),
 							((double)vertex3.color.getBlue() / 255),
 							b1, b2, b3, w),
 					0.0, 1.0);
 			
-			double u = interpolate(vertex1.U, vertex2.U, vertex3.U, b1, b2, b3, w);
-			double v = interpolate(vertex1.V, vertex2.V, vertex3.V, b1, b2, b3, w);
+			double u = PerspectiveInterpolate(vertex1.U, vertex2.U, vertex3.U, b1, b2, b3, w);
+			double v = PerspectiveInterpolate(vertex1.V, vertex2.V, vertex3.V, b1, b2, b3, w);
 			
-			int texelX = clamp((int)(u * textures[0].getWidth()), 0, textures[0].getWidth()-1);
-			int texelY = clamp((int)(v * textures[0].getHeight()), 0, textures[0].getHeight()-1);
+			int texelX = MathTools.Clamp((int)(u * textures[0].getWidth()), 0, textures[0].getWidth()-1);
+			int texelY = MathTools.Clamp((int)(v * textures[0].getHeight()), 0, textures[0].getHeight()-1);
 						
 			Color colorColor = new Color((float)colorR, (float)colorG, (float)colorB);
 			Color texColor = new Color(textures[0].getRGB(texelX, texelY));
@@ -359,26 +333,24 @@ public class TriFiller {
 			double diffuseLight = 0.5;
 			
 			Vector3 lightVector = new Vector3(
-					interpolate(lightVec[0].x(), lightVec[1].x(), lightVec[2].x(), b1, b2, b3, w),
-					interpolate(lightVec[0].y(), lightVec[1].y(), lightVec[2].y(), b1, b2, b3, w),
-					interpolate(lightVec[0].z(), lightVec[1].z(), lightVec[2].z(), b1, b2, b3, w)).normalize();
+					PerspectiveInterpolate(lightVec[0].x(), lightVec[1].x(), lightVec[2].x(), b1, b2, b3, w),
+					PerspectiveInterpolate(lightVec[0].y(), lightVec[1].y(), lightVec[2].y(), b1, b2, b3, w),
+					PerspectiveInterpolate(lightVec[0].z(), lightVec[1].z(), lightVec[2].z(), b1, b2, b3, w)).normalize();
 			double lamberFactor = Math.max(localNormal.dot(lightVector), 0.0);
 			
 			Vector3 halfVector = new Vector3(
-					interpolate(halfVec[0].x(), halfVec[1].x(), halfVec[2].x(), b1, b2, b3, w),
-					interpolate(halfVec[0].y(), halfVec[1].y(), halfVec[2].y(), b1, b2, b3, w),
-					interpolate(halfVec[0].z(), halfVec[1].z(), halfVec[2].z(), b1, b2, b3, w)).normalize();
+					PerspectiveInterpolate(halfVec[0].x(), halfVec[1].x(), halfVec[2].x(), b1, b2, b3, w),
+					PerspectiveInterpolate(halfVec[0].y(), halfVec[1].y(), halfVec[2].y(), b1, b2, b3, w),
+					PerspectiveInterpolate(halfVec[0].z(), halfVec[1].z(), halfVec[2].z(), b1, b2, b3, w)).normalize();
 			
 			double specularFactor = Math.max(localNormal.dot(halfVector), 0.0) * 0.1f;
 
-			float diffuse = (float)clamp((diffuseMaterial * diffuseLight * lamberFactor),0.,1.0);
+			float diffuse = (float)MathTools.Clamp((diffuseMaterial * diffuseLight * lamberFactor),0.,1.0);
 			
 			Color fragColor = new Color(
-					(float)clamp(diffuse*mix((float)colorColor.getRed() / 255, (float)texColor.getRed() / 255, weighto) + specularFactor, 0, 1),
-					(float)clamp(diffuse*mix((float)colorColor.getGreen() / 255, (float)texColor.getGreen() / 255, weighto) + specularFactor, 0, 1),
-					(float)clamp(diffuse*mix((float)colorColor.getBlue() / 255, (float)texColor.getBlue() / 255, weighto) + specularFactor, 0, 1));
-			
-			//fragColor = new Color(0.3f + fragLight,0.3f + fragLight,0.3f + fragLight); 
+					(float)MathTools.Clamp(diffuse*MathTools.Mix((float)colorColor.getRed() / 255, (float)texColor.getRed() / 255, weighto) + specularFactor, 0, 1),
+					(float)MathTools.Clamp(diffuse*MathTools.Mix((float)colorColor.getGreen() / 255, (float)texColor.getGreen() / 255, weighto) + specularFactor, 0, 1),
+					(float)MathTools.Clamp(diffuse*MathTools.Mix((float)colorColor.getBlue() / 255, (float)texColor.getBlue() / 255, weighto) + specularFactor, 0, 1));
 
 			framebuffer[bufferPos] = fragColor.getRGB();
 			ZBuffer[bufferPos] = z;
