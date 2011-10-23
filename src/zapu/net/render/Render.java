@@ -11,9 +11,9 @@ import javax.imageio.ImageIO;
 
 public class Render {
 	Triangle tris[];
-	Matrix ViewMatrix;
+	Matrix RotMatrix;
 	Matrix ProjectionMatrix;
-	Matrix ModelMatrix;
+	Matrix TransMatrix;
 
 	private double[] ZBuffer = new double[MainComponent.width * MainComponent.height]; 
 		
@@ -25,6 +25,8 @@ public class Render {
 	private Vector3[] sceneLights;
 	
 	public Render() {
+		
+		//Ladowanie tekstur z /resources/
 		try {
 			textures = new BufferedImage[]{
 				ImageIO.read(Render.class.getResource("/resources/fieldstone-c.jpg")),
@@ -35,10 +37,12 @@ public class Render {
 			e.printStackTrace();
 		}
 		
+		//Swiatla na scene (wypelniacz trojkatow obsluguje tylko jedno swiatlo)
 		sceneLights = new Vector3[] {
 				new Vector3(1,1.2,1)
 		};
 		
+		//Szescian opisany za pomoca trojkatow:
 		Triangle[] predefTris = new Triangle[] {
 			new Triangle(
 					new Vertex(new Vector3(0,0,0), new Vector3(0,0,1), Color.BLUE, 0, 0),
@@ -98,6 +102,8 @@ public class Render {
 					new Vertex(new Vector3(1,1,-1), new Vector3(0,1,0), Color.RED, 1, 1)),
 		};
 		
+		//Tworzenie listy trojkatow
+		//Docelowo dwa szesciany
 		ArrayList<Triangle> triList = new ArrayList<Triangle>();
 		for(int i = 0; i < predefTris.length; i++) {
 			Triangle newTri = new Triangle(predefTris[i]);
@@ -117,9 +123,10 @@ public class Render {
 			triList.add(newTri);
 		}
 		
+		//Wlasciwa tablica trojkatow ktora bedzie renderowana
 		tris = triList.toArray(new Triangle[triList.size()]);
 
-		
+		//Liczenie macierzy projekcji
 		double w = 1.0 / Math.tan(Math.toRadians(90) / 2);
 		double h = 1.0 / Math.tan(Math.toRadians(90) / 2);
 		double Q = Zfar / (Zfar - Znear);
@@ -130,7 +137,8 @@ public class Render {
 				{0, 0, -1, 0}
 		});
 		
-		ModelMatrix = new Matrix(new double[][]
+		//Domyslne macierze translacji oraz rotacji.
+		TransMatrix = new Matrix(new double[][]
  		 				{
  		 					{1, 0, 0, -3},
  		 					{0, 1, 0, -1},
@@ -138,7 +146,7 @@ public class Render {
  		 					{0, 0, 0, 1}
  		 				});
 		
-		ViewMatrix = new Matrix(new double[][]
+		RotMatrix = new Matrix(new double[][]
 		 				{
 		 					{1, 0, 0, 0},
 		 					{0, 1, 0, 0},
@@ -191,33 +199,41 @@ public class Render {
 		viewHorizontal += rotateSpeed * dx;
 		viewVertical += rotateSpeed * dy;
 		
-		AnglesToAxes(new Vector3(viewVertical, viewHorizontal, 0), ViewMatrix);
+		AnglesToAxes(new Vector3(viewVertical, viewHorizontal, 0), RotMatrix);
 	}
 	
 	public void moveView(int dx, int dy) {		
-		Vector3 vec = new Vector3(ModelMatrix.value(0, 3), ModelMatrix.value(1, 3), ModelMatrix.value(2, 3));
+		Vector3 vec = new Vector3(TransMatrix.value(0, 3), TransMatrix.value(1, 3), TransMatrix.value(2, 3));
 		
 		vec = vec.add(new Vector3(Math.cos(Math.toRadians(viewHorizontal)), 0, Math.sin(Math.toRadians(viewHorizontal))).mul(moveSpeed * dx));
 		vec = vec.add(new Vector3(Math.sin(Math.toRadians(viewVertical)), Math.cos(Math.toRadians(viewVertical)), 0).mul(moveSpeed * dy));
 		
-		ModelMatrix.set(0, 3, vec.x());
-		ModelMatrix.set(1, 3, vec.y());
-		ModelMatrix.set(2, 3, vec.z());
+		TransMatrix.set(0, 3, vec.x());
+		TransMatrix.set(1, 3, vec.y());
+		TransMatrix.set(2, 3, vec.z());
+	}
+
+	int currentFov = 90;
+	public void zoomView(int wheelRotation) {
+		currentFov = MathTools.Clamp(currentFov + wheelRotation, 30, 110);
+		ProjectionMatrix.set(0, 0, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
+		ProjectionMatrix.set(1, 1, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
 	}
 	
 	double frame = 0;
 	public void draw(Graphics g, int[] framebuffer) {
-		
+		//Czyszczenie Zbuffera
 		for(int i = 0; i < MainComponent.width * MainComponent.height; i++)
 			ZBuffer[i] = Zfar;
-				
+			
+		//Obiekty do przechowywania wynikow transformacji, potrzebnych do
+		//wypelnienia trojkata
 		Matrix screen_matrices[] = new Matrix[3];
-		Vector3 screen_points[] = new Vector3[3];
-		double screen_points_w[] = new double[3];
 		
-		Matrix modelViewMatrix = ViewMatrix.times(ModelMatrix);
+		Matrix modelViewMatrix = RotMatrix.times(TransMatrix);
 		Vector3[] lights = new Vector3[sceneLights.length];
 		
+		//Przesuwanie swiatel
 		frame++;
 		
 		for(int i = 0; i < sceneLights.length; i++) {
@@ -254,13 +270,10 @@ public class Render {
 				int screenX = (int) (MainComponent.width / 2 * normalizedX + MainComponent.width / 2);
 				int screenY = (int) (MainComponent.height / 2 *  normalizedY + MainComponent.height / 2);
 				double screenZ = (Zfar - Znear) / 2 * normalizedZ + (Zfar + Znear) / 2;
-
-				screen_points[i] = new Vector3(screenX, screenY, screenZ);
-				screen_points_w[i] = w;
 				
-				screen_matrices[i] = new Matrix(new double[][]{ {screenX, screenY, screenZ, w},
+				screen_matrices[i] = new Matrix(new double[][]{ 
+						{screenX, screenY, screenZ, w},
 						{normalizedX, normalizedY, normalizedZ, w}});
-			
 			}
 			
 			if(clipTri)
@@ -271,15 +284,11 @@ public class Render {
 		}
 	}
 	
+	/*
+	 * Metoda rysujaca rzeczy "nad" framebufferem
+	 */
 	void postRender(Graphics g) {
 		g.setColor(Color.WHITE);
 		g.drawString("Fov: " + currentFov, 10, 10);
-	}
-
-	int currentFov = 90;
-	public void zoomView(int wheelRotation) {
-		currentFov = MathTools.Clamp(currentFov + wheelRotation, 30, 110);
-		ProjectionMatrix.set(0, 0, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
-		ProjectionMatrix.set(1, 1, 1.0 / Math.tan(Math.toRadians(currentFov) / 2));
 	}
 }

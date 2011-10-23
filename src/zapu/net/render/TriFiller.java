@@ -77,6 +77,8 @@ public class TriFiller {
 	private Matrix mtx3;
 	
 	private boolean FindFillDirection() {
+		//Przeciecie prostej y=y3 z prosta (x1,y1),(x2,y2)
+		
 		double xsum = bottomMtx.value(0, 0) - topMtx.value(0, 0);
 		if(xsum == 0) {
 			return bottomMtx.value(0, 0) < mtx3.value(0, 0);
@@ -103,8 +105,10 @@ public class TriFiller {
 		this.framebuffer = framebuffer;
 		this.ZBuffer = ZBuffer;
 		
+		//Znalezienie wierzcholka "najwyzszego" (y najmniejsze) oraz "najnizszego" (y najwieksze)
 		FindTopBottom(topMtxIndex, bottomMtxIndex);
 		
+		//Trzeci wierzcholek:
 		index3 = (topMtxIndex.val + 1) % 3;
 		if(index3 == bottomMtxIndex.val)
 			index3 = (index3 + 1) % 3;
@@ -113,9 +117,13 @@ public class TriFiller {
 		bottomMtx = screenMatrices[bottomMtxIndex.val];
 		mtx3 = screenMatrices[index3];
 	
+		//Znalezienie kierunku wypelniania
 		boolean fillDirectionRight = FindFillDirection();
 		
+		//Znalezienie przestrzeni stycznej
 		FindTangents();
+		
+		//Wypelnianie
 		BrenFill(fillDirectionRight);
 	}
 	
@@ -138,6 +146,8 @@ public class TriFiller {
 		if(cp == 0.0)
 			cp = 0.1;
 		double mul = 1.0 / cp;
+		
+		//T,B,N dla trojkata
 		Vector3 tangent = (edge1.mul(-edge2v).add(edge2.mul(edge1v))).mul(mul);
 		Vector3 binormal = (edge1.mul(-edge2u).add(edge2.mul(edge1u))).mul(mul);
 		Vector3 normal = vtx1.normal;
@@ -147,6 +157,7 @@ public class TriFiller {
 		
 		Vertex vertices[] = new Vertex[]{vtx1, vtx2, vtx3};
 
+		//LightVec i HalfVec dla kazdego wierzcholka
 		lightVec = new Vector3[3];
 		halfVec = new Vector3[3];
 		
@@ -170,6 +181,7 @@ public class TriFiller {
 	}
 	
 	private void BrenFill(boolean fillRight) {
+		//Algorytm bresenhama
 		int x0 = (int)GetXComponentFromMatrix(topMtx);
 		int y0 = (int)GetYComponentFromMatrix(topMtx);
 		int x1 = (int)GetXComponentFromMatrix(bottomMtx);
@@ -264,12 +276,15 @@ public class TriFiller {
 		Vertex vertex2 = tri.getVertex(bottomMtxIndex.val);
 		Vertex vertex3 = tri.getVertex(index3);
 		
+		//Wspolrzedne barycentryczne
 		double detT = ((y2 - y3) * (x1 - x3)) + ((x3 - x2) * (y1 - y3));
 		double b1 = (((y2 - y3) * (x - x3)) + ((x3 - x2) * (y - y3))) / detT;
 		double b2 = (((y3 - y1) * (x - x3)) + ((x1 - x3) * (y - y3))) / detT;
 		double b3 = 1 - b1 - b2;
 		
+		//Sprawdzenie czy piksel jest w trojkacie
 		if((b1 >= 0 && b1 <= 1) && (b2 >= 0 && b2 <= 1) && (b3 >= 0 && b3 <= 1)) {
+			//Czy piksel jest na ekranie
 			if(x < 0 || y < 0 || x >= MainComponent.width || y >= MainComponent.height) {
 				return true;
 			}
@@ -278,11 +293,13 @@ public class TriFiller {
 			double z2 = bottomMtx.value(0, 2);
 			double z3 = mtx3.value(0, 2);
 			
+			//Interpolacja wspolrzednej z
 			double z = b1 * (1/z1) + b2 * (1/z2) + b3 * (1/z3);
-			//z = 1 / z;
 			
+			//Pozycja w framebufferze oraz zbufferze
 			int bufferPos = x + y * MainComponent.width;
 			
+			//ztest
 			if(z >= ZBuffer[bufferPos])
 				return true;
 									
@@ -292,7 +309,7 @@ public class TriFiller {
 			
 			double w = b1 * (1/w1) + b2 * (1/w2) + b3 * (1/w3);
 			
-			
+			//Interpolacja kolorow
 			double colorR = MathTools.Clamp(
 					PerspectiveInterpolate(((double)vertex1.color.getRed() / 255), 
 					((double)vertex2.color.getRed() / 255),
@@ -312,26 +329,36 @@ public class TriFiller {
 							b1, b2, b3, w),
 					0.0, 1.0);
 			
+			Color colorColor = new Color((float)colorR, (float)colorG, (float)colorB);
+			
+			//Interpolacja UV
 			double u = PerspectiveInterpolate(vertex1.U, vertex2.U, vertex3.U, b1, b2, b3, w);
 			double v = PerspectiveInterpolate(vertex1.V, vertex2.V, vertex3.V, b1, b2, b3, w);
 			
+			//XY piksela w teksturze
 			int texelX = MathTools.Clamp((int)(u * textures[0].getWidth()), 0, textures[0].getWidth()-1);
 			int texelY = MathTools.Clamp((int)(v * textures[0].getHeight()), 0, textures[0].getHeight()-1);
-						
-			Color colorColor = new Color((float)colorR, (float)colorG, (float)colorB);
-			Color texColor = new Color(textures[0].getRGB(texelX, texelY));
-			float weighto = 1.0f;
 			
+			//Kolor teksela
+			Color texColor = new Color(textures[0].getRGB(texelX, texelY));
+			
+			//Stosunek koloru teksela do koloru wierzcholka
+			float weighto = .5f;
+			
+			//Kolor z normal mapy
 			Color normalMapColor = new Color(textures[1].getRGB(texelX, texelY));
+			//Wektor normalny w tanym punkcie
 			Vector3 localNormal = new Vector3(
 					2.0 * (normalMapColor.getRed() / 255.0) - 1.0,
 					2.0 * (normalMapColor.getGreen() / 255.0) - 1.0,
 					2.0 * (normalMapColor.getBlue() / 255.0) - 1.0
 					).normalize();
 			
+			//Wlasnosci materialu
 			double diffuseMaterial = 0.5;
 			double diffuseLight = 0.5;
 			
+			//Interpolacja lightVector, halfVector i natezenia swiatla
 			Vector3 lightVector = new Vector3(
 					PerspectiveInterpolate(lightVec[0].x(), lightVec[1].x(), lightVec[2].x(), b1, b2, b3, w),
 					PerspectiveInterpolate(lightVec[0].y(), lightVec[1].y(), lightVec[2].y(), b1, b2, b3, w),
@@ -342,11 +369,11 @@ public class TriFiller {
 					PerspectiveInterpolate(halfVec[0].x(), halfVec[1].x(), halfVec[2].x(), b1, b2, b3, w),
 					PerspectiveInterpolate(halfVec[0].y(), halfVec[1].y(), halfVec[2].y(), b1, b2, b3, w),
 					PerspectiveInterpolate(halfVec[0].z(), halfVec[1].z(), halfVec[2].z(), b1, b2, b3, w)).normalize();
-			
 			double specularFactor = Math.max(localNormal.dot(halfVector), 0.0) * 0.1f;
 
 			float diffuse = (float)MathTools.Clamp((diffuseMaterial * diffuseLight * lamberFactor),0.,1.0);
 			
+			//Wynikowy kolor piksela
 			Color fragColor = new Color(
 					(float)MathTools.Clamp(diffuse*MathTools.Mix((float)colorColor.getRed() / 255, (float)texColor.getRed() / 255, weighto) + specularFactor, 0, 1),
 					(float)MathTools.Clamp(diffuse*MathTools.Mix((float)colorColor.getGreen() / 255, (float)texColor.getGreen() / 255, weighto) + specularFactor, 0, 1),

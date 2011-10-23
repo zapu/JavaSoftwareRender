@@ -29,6 +29,8 @@ public class MainComponent extends Canvas implements Runnable, MouseListener, Mo
 	public MainComponent()
 	{
 		img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		
+		//Bedzie uzywane jako "framebuffer" i rysowane na JFrame
 		imgPixels = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
 		
 		render = new Render();
@@ -68,8 +70,14 @@ public class MainComponent extends Canvas implements Runnable, MouseListener, Mo
 		thread.start();
 	}
 
+	/* 
+	 * Glowna petla programu. Stara sie wywolywac 
+	 * tick() oraz render() 60 razy na sekunde. 
+	 */
 	@Override
 	public void run() {
+
+		
 		long prevTime = System.nanoTime();
 		
 		while(running) {
@@ -99,6 +107,10 @@ public class MainComponent extends Canvas implements Runnable, MouseListener, Mo
 		}
 	}
 	
+	/*
+	 * Wywoluje metode rysujaca do "framebuffera", 
+	 * uprzednio czyszczac sam framebuffer.
+	 */
 	private void render() {
 		BufferStrategy bs = getBufferStrategy();
 		if(bs == null) {
@@ -106,6 +118,7 @@ public class MainComponent extends Canvas implements Runnable, MouseListener, Mo
 			return;
 		}
 		
+		//Czyszczenie FB
 		for(int i = 0; i < width*height; i++) {
 			imgPixels[i] = 0x00000000;
 		}
@@ -196,6 +209,5 @@ public class MainComponent extends Canvas implements Runnable, MouseListener, Mo
 	@Override
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		render.zoomView(e.getWheelRotation());
-		
 	}
 }
